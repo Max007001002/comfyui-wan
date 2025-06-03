@@ -30,4 +30,4 @@ RUN chmod +x /start_script.sh
 EXPOSE 8000 8188 8888
 
 # 7. Запускаем скрипт, который стартует uvicorn (FastAPI)
-CMD ["/start_script.sh"]
+CMD ["/start_script_backend.sh"]
