@@ -1,0 +1,64 @@
+version: "3.9"
+
+###############################################################################
+#  ПЕРЕМЕННЫЕ (в файле .env)
+###############################################################################
+# BROKER_URL      = redis://redis:6379/0
+# WAN_MODEL_PATH  = /models/wan14B-720p
+# JWT_SECRET      = change_me_very_secret
+# INSTALL_COMFY   = true         # или false
+# INSTALL_WAN     = true         # обычно true
+###############################################################################
+
+services:
+# ──────────────────────────────  FastAPI + Celery  ───────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile          # путь к Dockerfile
+      args:
+        INSTALL_WAN:  "${INSTALL_WAN:-true}"
+        INSTALL_COMFY: "${INSTALL_COMFY:-true}"
+    container_name: wan-api
+    env_file: [.env]                          # переменные выше
+    environment:
+      - WAN_MODEL_PATH=${WAN_MODEL_PATH}
+      - BROKER_URL=${BROKER_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8000:8000"                           # FastAPI
+      - "8188:8188"                           # ComfyUI
+      - "8888:8888"                           # JupyterLab
+    volumes:
+      # сохраняем видео-результаты и, при желании, веса модели вне контейнера
+      - ./data/videos:/app/videos
+      - ./models:/models:ro                   # если веса лежат вне образа
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia                 # обе карты доступны контейнеру
+              capabilities: [gpu]            # RunPod сам подставит 0 и 1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# ──────────────────────────────  Redis (Celery broker)  ──────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: wan-redis
+    command: ["redis-server", "--save", "60", "1"]   # снапшот раз в минуту
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis-data:
