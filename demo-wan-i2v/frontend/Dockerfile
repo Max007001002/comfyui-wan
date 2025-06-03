@@ -21,4 +21,4 @@ RUN chmod +x /start_script.sh
 EXPOSE 3000
 
 # 6. Запуск Vite
-CMD ["/start_script.sh"]
+CMD ["/start_script_frontend.sh"]
